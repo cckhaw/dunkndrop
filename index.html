@@ -194,6 +194,7 @@ canvas#game { position: absolute; inset: 0; width: 100%; height: 100%; display: 
   font: 600 17px/1 var(--font); letter-spacing: -0.01em; cursor: pointer;
   transition: transform 0.15s var(--ease), filter 0.2s;
 }
+.btn[hidden] { display: none; }
 .btn + .btn { margin-top: 10px; }
 .btn:active { transform: scale(0.97); filter: brightness(0.9); }
 .btn.primary { background: var(--cyan); color: #04222b; box-shadow: 0 8px 28px rgba(34, 211, 238, 0.35); }
@@ -209,6 +210,42 @@ canvas#game { position: absolute; inset: 0; width: 100%; height: 100%; display: 
 .stats b { display: block; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .stats span { font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--label-2); }
 .world-tag { margin: 0 0 6px; font-size: 13px; color: var(--label-2); }
+
+/* Leaderboard */
+.btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.btn-row .btn + .btn { margin-top: 0; }
+.btn.compact { min-height: 44px; font-size: 15px; padding: 0 12px; }
+.lb-submit { margin: 0 0 14px; text-align: left; }
+.field-label { display: block; margin: 0 0 8px; font-size: 13px; font-weight: 600; letter-spacing: 0.02em; color: var(--label-2); text-align: center; }
+.text-field {
+  display: block; width: 100%; min-height: 50px; padding: 0 16px; margin: 0 0 8px;
+  border: 1px solid var(--material-border); border-radius: var(--radius-ctl);
+  background: rgba(118, 118, 128, 0.24); color: var(--label);
+  font: 500 17px/1 var(--font); text-align: center; user-select: text; -webkit-user-select: text;
+}
+.text-field::placeholder { color: var(--label-3); }
+.text-field:focus-visible { outline: 3px solid var(--cyan); outline-offset: 1px; }
+.text-field[aria-invalid="true"] { border-color: #ff6b81; }
+.field-help { margin: 0 0 10px; font-size: 12px; line-height: 1.35; color: var(--label-3); text-align: center; }
+.field-error { margin: 0 0 10px; font-size: 13px; font-weight: 600; line-height: 1.35; color: #ff8a9a; text-align: center; }
+.field-error[hidden], .lb-submit[hidden], .lb-result[hidden], .lb-note[hidden] { display: none; }
+.lb-result { margin: 0 0 14px; padding: 10px 12px; border-radius: 12px; background: rgba(57, 255, 122, 0.12); color: var(--green); font-size: 15px; font-weight: 600; }
+.lb-note { margin: 0 0 14px; font-size: 13px; color: var(--label-3); }
+.segmented { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 2px; margin: 4px 0 14px; border-radius: 10px; background: rgba(118, 118, 128, 0.24); }
+.segmented button {
+  min-height: 44px; padding: 0 4px; border: 0; border-radius: 8px; background: transparent; color: var(--label);
+  font: 600 13px/1.15 var(--font); cursor: pointer; transition: background 0.2s, color 0.2s;
+}
+.segmented button[aria-selected="true"] { background: rgba(255, 255, 255, 0.18); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); }
+.board { list-style: none; margin: 0 0 12px; padding: 0; text-align: left; min-height: 120px; }
+.board li { display: grid; grid-template-columns: 32px 1fr auto; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px; border-radius: 12px; font-size: 16px; }
+.board li:nth-child(odd) { background: rgba(120, 120, 128, 0.14); }
+.board li.me { background: rgba(34, 211, 238, 0.2); box-shadow: inset 0 0 0 1.5px rgba(34, 211, 238, 0.6); }
+.board .rank { font-weight: 700; color: var(--label-2); font-variant-numeric: tabular-nums; }
+.board li:nth-child(1) .rank { color: #ffd23c; } .board li:nth-child(2) .rank { color: #d6dbe6; } .board li:nth-child(3) .rank { color: #ffa86b; }
+.board .who { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board .pts { font-weight: 800; font-variant-numeric: tabular-nums; }
+.board-empty { display: grid; place-items: center; min-height: 120px; padding: 0 12px; color: var(--label-2); font-size: 15px; line-height: 1.4; text-align: center; }
 
 /* ---------- Motion ---------- */
 @keyframes fade { from { opacity: 0; } }
@@ -271,6 +308,7 @@ canvas#game { position: absolute; inset: 0; width: 100%; height: 100%; display: 
           <h1 class="title" id="startTitle">Dunk &amp; Drop</h1>
           <p class="subtitle">Pick your court</p>
           <div class="worlds" id="worlds"></div>
+          <button class="btn secondary" id="btnBoards">Leaderboards</button>
           <button class="btn tertiary" data-sound-toggle aria-pressed="true">Sound On</button>
           <p class="caption">Pull the ball back like a slingshot and release to shoot. Drag the court to orbit around it, pinch or scroll to zoom, two fingers to pan. Keyboard: arrows + Space, Q/E rotate, + / - zoom, 0 reset, P pause.</p>
         </div>
@@ -300,8 +338,32 @@ canvas#game { position: absolute; inset: 0; width: 100%; height: 100%; display: 
             <div><b id="overSwish">0</b><span>Swishes</span></div>
             <div><b id="overCombo">0</b><span>Top combo</span></div>
           </div>
-          <button class="btn primary" id="btnAgain">Play Again</button>
-          <button class="btn secondary" id="btnOverMenu">Change Court</button>
+          <form class="lb-submit" id="lbForm" autocomplete="off" novalidate hidden>
+            <label class="field-label" for="nameInput">Put your score on the leaderboard</label>
+            <input class="text-field" id="nameInput" type="text" maxlength="14" placeholder="Your name" enterkeyhint="done"
+                   autocapitalize="off" autocorrect="off" spellcheck="false" aria-describedby="nameHelp nameErr">
+            <p class="field-help" id="nameHelp">2-14 letters, numbers, spaces or . _ - &middot; shown publicly</p>
+            <p class="field-error" id="nameErr" role="alert" hidden></p>
+            <button class="btn primary" id="btnSubmitScore" type="submit">Submit Score</button>
+          </form>
+          <p class="lb-result" id="lbResult" role="status" hidden></p>
+          <p class="lb-note" id="lbNote" hidden></p>
+          <button class="btn secondary" id="btnAgain">Play Again</button>
+          <div class="btn-row">
+            <button class="btn secondary compact" id="btnOverBoard">Leaderboard</button>
+            <button class="btn tertiary compact" id="btnOverMenu">Change Court</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Leaderboard -->
+      <section id="boardScreen" class="overlay" role="dialog" aria-modal="true" aria-labelledby="boardTitle" hidden>
+        <div class="card glass">
+          <h2 class="title small" id="boardTitle">Leaderboard</h2>
+          <div class="segmented" role="tablist" aria-label="Court" id="boardTabs"></div>
+          <ol class="board" id="boardList" aria-live="polite"></ol>
+          <button class="btn secondary compact" id="btnBoardRetry" hidden>Try Again</button>
+          <button class="btn primary" id="btnBoardBack">Done</button>
         </div>
       </section>
     </main>
@@ -348,6 +410,38 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* storage unavailable */ } }
 };
+
+/* ---------- name validation + profanity filter (same code the server runs) ---------- */
+/* PROFANITY:START */
+const NAME_MIN = 2, NAME_MAX = 14;
+const LEET = { '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't', '8': 'b', '@': 'a', '$': 's', '!': 'i', '|': 'i', '+': 't' };
+// Roots blocked anywhere in the name (letters only, so "f.u-c k" and "sh1t" are caught). Letter runs tolerate stretching.
+const BLOCK_ANYWHERE = ['fuck', 'fuk', 'shit', 'cunt', 'bitch', 'nigg', 'whore', 'slut', 'bastard', 'pussy', 'wank', 'twat', 'asshole', 'jackass',
+  'dumbass', 'faggot', 'fagg', 'motherf', 'penis', 'vagina', 'dildo', 'blowjob', 'handjob', 'cumshot', 'orgasm', 'porn', 'hitler', 'retard',
+  'pedophil', 'molest', 'incest', 'cocksuck', 'dickhead', 'bullshit', 'bollocks', 'jizz', 'sperm', 'tranny', 'wetback', 'piss', 'fck'];
+// Short or ambiguous words, blocked only as a whole word (so "class", "Dickson" and "Essex" stay allowed).
+const BLOCK_WHOLE_WORD = ['ass', 'arse', 'cock', 'dick', 'dik', 'cum', 'tit', 'tits', 'titty', 'titties', 'boob', 'boobs', 'boobies', 'anal', 'anus',
+  'sex', 'sexy', 'nude', 'nudes', 'milf', 'rape', 'rapist', 'fag', 'dyke', 'kike', 'spic', 'chink', 'paki', 'coon', 'gook', 'homo', 'negro', 'beaner',
+  'tard', 'pedo', 'paedo', 'hoe', 'skank', 'thot', 'slag', 'prick', 'bugger', 'tosser', 'nazi', 'sht', 'btch', 'cnt', 'stfu', 'kys'];
+const runPattern = w => w.replace(/(.)\1*/g, (run, ch) => ch + (run.length > 1 ? '{' + run.length + ',}' : '+'));
+const ANYWHERE_RE = BLOCK_ANYWHERE.map(w => new RegExp(runPattern(w)));
+const WHOLE_RE = BLOCK_WHOLE_WORD.map(w => new RegExp('^' + runPattern(w) + '$'));
+function isProfane(name) {
+  const norm = String(name).normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[0134578@$!|+]/g, ch => LEET[ch]);
+  const squashed = norm.replace(/[^a-z]/g, '');
+  const words = norm.split(/[^a-z]+/).filter(Boolean);
+  return ANYWHERE_RE.some(re => re.test(squashed)) || WHOLE_RE.some(re => re.test(squashed) || words.some(w => re.test(w)));
+}
+function validateName(raw) {
+  if (typeof raw !== 'string') return { ok: false, error: 'name_invalid' };
+  const name = raw.replace(/\s+/g, ' ').trim();
+  if (name.length < NAME_MIN || name.length > NAME_MAX) return { ok: false, error: 'name_length' };
+  if (!/^[A-Za-z0-9 ._-]+$/.test(name) || !/[A-Za-z0-9]/.test(name)) return { ok: false, error: 'name_chars' };
+  if (/https?:|www\.|\.(com|net|org|io|gg|xyz|app)\b/i.test(name)) return { ok: false, error: 'name_link' };
+  if (isProfane(name)) return { ok: false, error: 'name_profane' };
+  return { ok: true, name };
+}
+/* PROFANITY:END */
 
 /* ---------- colour helpers ---------- */
 const hx = h => { h = h.replace('#', ''); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]; };
@@ -1051,7 +1145,8 @@ const els = {
   start: $('startScreen'), pause: $('pauseScreen'), over: $('overScreen'),
   worlds: $('worlds'), pauseWorld: $('pauseWorld'),
   overWorld: $('overWorld'), overScore: $('overScore'), overBest: $('overBest'),
-  overSwish: $('overSwish'), overCombo: $('overCombo'), newBest: $('newBest'), btnPause: $('btnPause')
+  overSwish: $('overSwish'), overCombo: $('overCombo'), newBest: $('newBest'), btnPause: $('btnPause'),
+  board: $('boardScreen')
 };
 const ctx = els.canvas.getContext('2d');
 const bestKey = id => 'dunkdrop.best.' + id;
@@ -1312,6 +1407,7 @@ function startGame(id) {
   resetGame();
   game.state = 'playing';
   showOverlay(null);
+  lbStartSession();
 }
 function pauseGame() {
   if (game.state !== 'playing') return;
@@ -1340,13 +1436,15 @@ function endGame() {
   els.overCombo.textContent = game.bestCombo ? `x${game.bestCombo}` : '-';
   els.newBest.hidden = !isBest;
   Sound.gameOver();
+  lbPrepareForm();
   setTimeout(() => { if (game.state === 'over') showOverlay('over'); }, 350);
 }
 function showOverlay(name) {
   els.start.hidden = name !== 'start';
   els.pause.hidden = name !== 'pause';
   els.over.hidden = name !== 'over';
-  const target = { start: null, pause: 'btnResume', over: 'btnAgain' }[name];
+  els.board.hidden = name !== 'board';
+  const target = { start: null, pause: 'btnResume', over: $('lbForm').hidden ? 'btnAgain' : 'btnSubmitScore', board: 'btnBoardBack' }[name];
   if (target) $(target).focus({ preventScroll: true });
   if (name === 'start') { const last = els.worlds.querySelector('.world.last'); if (last) last.focus({ preventScroll: true }); }
   els.btnPause.style.visibility = game.state === 'playing' ? 'visible' : 'hidden';
@@ -1397,6 +1495,135 @@ function renderThumbs() {
     drawScene(c, PP, wd, { time: 1, hoop: hp, ball: { x: sp.x, y: BALL_H, z: sp.z, appear: 1, trail: [], spin: 0 }, particles: null });
   });
 }
+
+/* =====================================================================
+   Leaderboard (per world, shared by all players via /api/leaderboard)
+   ===================================================================== */
+const lb = { token: null, tokenWorld: null, me: null, boardWorld: 'block', boardFrom: 'start', seq: 0 };
+const NAME_ERRORS = {
+  name_length: `Names are ${NAME_MIN}-${NAME_MAX} characters.`, name_chars: 'Use letters, numbers, spaces and . _ - only.',
+  name_link: "Names can't contain links.", name_profane: 'Please choose a different name.', name_invalid: 'Please enter a name.'
+};
+const LB_ERRORS = {
+  token_invalid: "Couldn't verify this game. Play another round to submit.", token_expired: "Couldn't verify this game. Play another round to submit.",
+  too_fast: "Couldn't verify this game. Play another round to submit.", already_submitted: 'This score was already submitted.',
+  score_invalid: "That score can't be submitted."
+};
+async function lbFetch(method, query, body) {
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 8000);
+  try {
+    const r = await fetch('/api/leaderboard' + (query || ''), {
+      method, cache: 'no-store', signal: ctl.signal,
+      headers: body ? { 'Content-Type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined
+    });
+    return { status: r.status, data: await r.json().catch(() => ({})) };
+  } finally { clearTimeout(timer); }
+}
+// A signed session token is requested when a game starts; the server uses it to check a submitted score is plausible.
+async function lbStartSession() {
+  const w = game.worldId; lb.token = null; lb.tokenWorld = null;
+  try {
+    const r = await lbFetch('POST', '', { action: 'start', world: w });
+    if (r.status === 200 && r.data.token && game.worldId === w) { lb.token = r.data.token; lb.tokenWorld = w; }
+  } catch (e) { /* offline: the game still works, scores just can't be submitted */ }
+}
+function lbSetError(msg) {
+  const input = $('nameInput'), err = $('nameErr');
+  err.textContent = msg || ''; err.hidden = !msg;
+  input.setAttribute('aria-invalid', msg ? 'true' : 'false');
+}
+function setAgainPrimary(on) { $('btnAgain').classList.toggle('primary', on); $('btnAgain').classList.toggle('secondary', !on); }
+function lbPrepareForm() {
+  const form = $('lbForm'), note = $('lbNote'), result = $('lbResult');
+  result.hidden = true; note.hidden = true; lbSetError('');
+  const canSubmit = game.score > 0 && lb.token && lb.tokenWorld === game.worldId;
+  form.hidden = !canSubmit; setAgainPrimary(!canSubmit);
+  if (game.score > 0 && !canSubmit) { note.textContent = 'The leaderboard is unavailable right now.'; note.hidden = false; }
+  $('nameInput').value = store.get('dunkdrop.name', '');
+  $('btnSubmitScore').disabled = false; $('btnSubmitScore').textContent = 'Submit Score';
+}
+async function lbSubmit(e) {
+  e.preventDefault();
+  const v = validateName($('nameInput').value);
+  if (!v.ok) { lbSetError(NAME_ERRORS[v.error]); $('nameInput').focus(); return; }
+  lbSetError('');
+  const btn = $('btnSubmitScore'), w = game.worldId, score = game.score;
+  btn.disabled = true; btn.textContent = 'Submitting…';
+  try {
+    const r = await lbFetch('POST', '', { action: 'submit', world: w, token: lb.token, name: v.name, score });
+    if (r.status === 200) {
+      store.set('dunkdrop.name', v.name);
+      lb.me = { world: w, name: v.name, score };
+      lb.token = null;                                         // one submission per game
+      $('lbForm').hidden = true; setAgainPrimary(true);
+      const res = $('lbResult');
+      res.textContent = r.data.rank
+        ? (r.data.improved ? `You're #${r.data.rank} on ${WORLDS[w].name}!` : `Your best on ${WORLDS[w].name} is higher - you stay at #${r.data.rank}.`)
+        : `Nice score! It didn't make the top ${r.data.entries ? r.data.entries.length : 10} on ${WORLDS[w].name}.`;
+      res.hidden = false;
+      $('btnAgain').focus({ preventScroll: true });
+      return;
+    }
+    lbSetError(NAME_ERRORS[r.data.error] || LB_ERRORS[r.data.error] || 'The leaderboard is unavailable right now. Try again in a moment.');
+  } catch (err) {
+    lbSetError('Could not reach the leaderboard. Check your connection and try again.');
+  }
+  btn.disabled = false; btn.textContent = 'Submit Score';
+}
+$('lbForm').addEventListener('submit', lbSubmit);
+$('nameInput').addEventListener('input', () => { if (!$('nameErr').hidden) lbSetError(''); });
+
+// ----- leaderboard screen -----
+const boardTabs = $('boardTabs');
+for (const id of WORLD_ORDER) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.setAttribute('role', 'tab'); b.dataset.world = id; b.textContent = WORLDS[id].name;
+  b.addEventListener('click', () => lbShowBoard(id));
+  boardTabs.appendChild(b);
+}
+function lbRender(worldId, entries) {
+  const list = $('boardList');
+  list.replaceChildren();
+  if (!entries.length) {
+    const li = document.createElement('li'); li.className = 'board-empty'; li.style.display = 'grid';
+    li.textContent = 'No scores yet. Be the first on ' + WORLDS[worldId].name + '!'; list.appendChild(li); return;
+  }
+  entries.forEach((e, i) => {
+    const li = document.createElement('li'), rank = document.createElement('span'), who = document.createElement('span'), pts = document.createElement('span');
+    rank.className = 'rank'; rank.textContent = i + 1; who.className = 'who'; who.textContent = e.name; pts.className = 'pts'; pts.textContent = e.score;
+    if (lb.me && lb.me.world === worldId && lb.me.name.toLowerCase() === e.name.toLowerCase() && lb.me.score === e.score) { li.className = 'me'; who.textContent = e.name + ' (you)'; }
+    li.append(rank, who, pts); list.appendChild(li);
+  });
+}
+async function lbShowBoard(worldId) {
+  lb.boardWorld = worldId;
+  const seq = ++lb.seq, list = $('boardList'), retry = $('btnBoardRetry');
+  boardTabs.querySelectorAll('button').forEach(b => { const on = b.dataset.world === worldId; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; });
+  retry.hidden = true; list.replaceChildren();
+  const li = document.createElement('li'); li.className = 'board-empty'; li.style.display = 'grid'; li.textContent = 'Loading…'; list.appendChild(li);
+  try {
+    const r = await lbFetch('GET', '?world=' + encodeURIComponent(worldId));
+    if (seq !== lb.seq) return;                                   // a newer tab was chosen meanwhile
+    if (r.status !== 200) throw new Error('bad status');
+    lbRender(worldId, r.data.entries || []);
+  } catch (e) {
+    if (seq !== lb.seq) return;
+    list.replaceChildren();
+    const msg = document.createElement('li'); msg.className = 'board-empty'; msg.style.display = 'grid';
+    msg.textContent = "Couldn't load the leaderboard. Check your connection and try again."; list.appendChild(msg);
+    retry.hidden = false;
+  }
+}
+function lbOpen(from, worldId) { lb.boardFrom = from; showOverlay('board'); lbShowBoard(worldId); }
+$('btnBoards').addEventListener('click', () => { Sound.init(); Sound.ui(); lbOpen('start', game.worldId); });
+$('btnOverBoard').addEventListener('click', () => { Sound.ui(); lbOpen('over', game.worldId); });
+$('btnBoardBack').addEventListener('click', () => { Sound.ui(); showOverlay(lb.boardFrom); });
+$('btnBoardRetry').addEventListener('click', () => lbShowBoard(lb.boardWorld));
+boardTabs.addEventListener('keydown', e => {                      // arrow keys move between segments
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  const i = WORLD_ORDER.indexOf(lb.boardWorld), n = WORLD_ORDER.length, next = WORLD_ORDER[(i + (e.key === 'ArrowRight' ? 1 : n - 1)) % n];
+  e.preventDefault(); lbShowBoard(next); boardTabs.querySelector(`[data-world="${next}"]`).focus();
+});
 
 /* =====================================================================
    Input - pointer + keyboard
@@ -1493,6 +1720,7 @@ $('btnResetView').addEventListener('click', () => { Sound.ui(); resetView(); });
 
 const kb = { yawRel: 0, power: 0.55 };
 window.addEventListener('keydown', e => {
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;       // typing a name
   const k = e.key;
   if (game.state === 'playing') {
     if (k === '+' || k === '=') { zoomBy(0.8); return; }
