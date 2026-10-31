@@ -1,0 +1,92 @@
+name: Deploy to Vercel (Production)
+
+# Production only: runs on pushes to main (or manually). There is no pull_request
+# trigger and `git.deploymentEnabled` is false in vercel.json, so preview
+# deployments are never created.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: vercel-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel production settings
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Build
+        run: vercel build --prod --token="$VERCEL_TOKEN"
+
+      - name: Deploy to production
+        id: deploy
+        run: |
+          url=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")
+          echo "Production deployment: $url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Delete all previous deployments
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          set -euo pipefail
+          api="https://api.vercel.com"
+          auth="Authorization: Bearer $VERCEL_TOKEN"
+          team=""
+          case "$VERCEL_ORG_ID" in team_*) team="teamId=$VERCEL_ORG_ID" ;; esac
+
+          # Resolve the new deployment and make sure it is live in production
+          # BEFORE anything is deleted.
+          host="${DEPLOYMENT_URL#https://}"
+          info=$(curl -fsS -H "$auth" "$api/v13/deployments/$host${team:+?$team}")
+          new_id=$(jq -r '.id' <<<"$info")
+          state=$(jq -r '.readyState' <<<"$info")
+          target=$(jq -r '.target // empty' <<<"$info")
+          echo "New deployment: $new_id (state=$state, target=$target)"
+          if [ "$state" != "READY" ] || [ "$target" != "production" ]; then
+            echo "::error::Latest deployment is not a READY production deployment; skipping cleanup."
+            exit 1
+          fi
+
+          # Collect every deployment of this project (paginated).
+          ids=(); until=""
+          while :; do
+            resp=$(curl -fsS -H "$auth" "$api/v6/deployments?projectId=$VERCEL_PROJECT_ID&limit=100${team:+&$team}${until:+&until=$until}")
+            while IFS= read -r id; do [ -n "$id" ] && ids+=("$id"); done < <(jq -r '.deployments[].uid' <<<"$resp")
+            until=$(jq -r '.pagination.next // empty' <<<"$resp")
+            [ -z "$until" ] && break
+          done
+
+          failed=0; deleted=0
+          for id in "${ids[@]}"; do
+            [ "$id" = "$new_id" ] && continue
+            if curl -fsS -X DELETE -H "$auth" "$api/v13/deployments/$id${team:+?$team}" >/dev/null; then
+              deleted=$((deleted + 1)); echo "Deleted $id"
+            else
+              failed=$((failed + 1)); echo "::warning::Could not delete $id"
+            fi
+          done
+          echo "Deleted $deleted previous deployment(s); kept $new_id."
+          [ "$failed" -eq 0 ]
