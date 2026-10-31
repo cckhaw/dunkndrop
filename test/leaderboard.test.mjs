@@ -111,3 +111,62 @@ test('only the top entries are stored and shown, profane stored names are hidden
   t.store.boards.neon.entries.push({ n: 'fuck', s: 999, t: 1 });                                   // e.g. added before the list grew
   assert.ok(!(await call(t.handler, 'GET', { query: { world: 'neon' } })).body.entries.some(e => e.name === 'fuck'));
 });
+
+// ---------- Blob store adapter (against a fake SDK with the same conditional-write semantics) ----------
+import { createBlobStore } from '../lib/blob-store.js';
+function fakeSdk() {
+  class BlobPreconditionFailedError extends Error {}
+  const files = new Map(), log = { puts: 0, conflicts: 0, interfere: null };
+  let ver = 0;
+  return {
+    files, log, BlobPreconditionFailedError,
+    async get(path, opts) {
+      assert.equal(opts.access, 'private'); assert.equal(opts.useCache, false);
+      const f = files.get(path); if (!f) return null;
+      return { statusCode: 200, stream: new Blob([f.body]).stream(), blob: { etag: f.etag } };
+    },
+    async put(path, body, opts) {
+      assert.equal(opts.access, 'private'); assert.equal(opts.addRandomSuffix, false);
+      if (log.interfere) { const f = log.interfere; log.interfere = null; f(); }          // another request sneaks in before this write
+      const cur = files.get(path);
+      if (!cur && opts.allowOverwrite) throw new Error('no such blob');
+      if (cur && !opts.allowOverwrite) throw new Error('This blob already exists');
+      if (cur && opts.ifMatch !== cur.etag) { log.conflicts++; throw new BlobPreconditionFailedError('precondition failed'); }
+      files.set(path, { body, etag: 'v' + (++ver) }); log.puts++;
+      return { pathname: path };
+    }
+  };
+}
+const addScore = (name, s) => data => ({ data: { v: 1, entries: data.entries.concat({ n: name, s, t: 1 }), nonces: data.nonces }, result: data.entries.length + 1 });
+
+test('blob store: first write creates the file, later writes are conditional on the ETag', async () => {
+  const sdk = fakeSdk(), store = createBlobStore(sdk);
+  assert.deepEqual((await store.read('block')).data, emptyBoard());
+  assert.equal(await store.update('block', addScore('A', 5)), 1);
+  assert.equal(await store.update('block', addScore('B', 6)), 2);
+  assert.deepEqual(JSON.parse(sdk.files.get('leaderboard/block.json').body).entries.map(e => e.n), ['A', 'B']);
+  assert.equal(sdk.log.conflicts, 0);
+});
+test('blob store: a concurrent write causes a re-read and retry, so no update is lost', async () => {
+  const sdk = fakeSdk(), store = createBlobStore(sdk);
+  await store.update('roof', addScore('A', 1));
+  sdk.log.interfere = () => { const f = sdk.files.get('leaderboard/roof.json'); const d = JSON.parse(f.body); d.entries.push({ n: 'Rival', s: 9, t: 1 }); sdk.files.set('leaderboard/roof.json', { body: JSON.stringify(d), etag: 'rival-write' }); };
+  assert.equal(await store.update('roof', addScore('Me', 3)), 3);                      // saw A and Rival on the retry
+  assert.deepEqual(JSON.parse(sdk.files.get('leaderboard/roof.json').body).entries.map(e => e.n), ['A', 'Rival', 'Me']);
+  assert.equal(sdk.log.conflicts, 1);
+});
+test('blob store: two racing first-ever writes both end up stored', async () => {
+  const sdk = fakeSdk(), store = createBlobStore(sdk);
+  sdk.log.interfere = () => sdk.files.set('leaderboard/neon.json', { body: JSON.stringify({ v: 1, entries: [{ n: 'First', s: 7, t: 1 }], nonces: [] }), etag: 'first' });
+  await store.update('neon', addScore('Second', 2));
+  assert.deepEqual(JSON.parse(sdk.files.get('leaderboard/neon.json').body).entries.map(e => e.n), ['First', 'Second']);
+});
+test('blob store: a rejected update (throw inside fn) writes nothing; persistent conflicts eventually error', async () => {
+  const sdk = fakeSdk(), store = createBlobStore(sdk);
+  await assert.rejects(store.update('block', () => { throw new Error('nope'); }), /nope/);
+  assert.equal(sdk.log.puts, 0);
+  await store.update('block', addScore('A', 1));
+  const always = () => sdk.files.set('leaderboard/block.json', { body: sdk.files.get('leaderboard/block.json').body, etag: 'x' + Math.random() });
+  const orig = sdk.put.bind(sdk); sdk.put = async (...a) => { always(); return orig(...a); };
+  await assert.rejects(store.update('block', addScore('B', 2)), e => e instanceof sdk.BlobPreconditionFailedError);
+});
