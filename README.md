@@ -5,7 +5,7 @@ A single-file HTML5 physics arcade shooter. Drag the ball back, release, and swi
 - **Play:** open `index.html` in a browser (no build step, no dependencies, no external assets).
 - **View:** a 3D behind-the-shooter camera on a half court with NBA-style markings (key, free-throw circle, restricted arc, three-point line). Rendering is a small software 3D engine on Canvas; the ball uses full 3D physics (floor, walls, glass backboard, rim torus, rotating obstacle).
 - **Worlds:** pick one at the start screen - *Sunny Block* (neighbourhood, daytime), *Rooftop Sunset* (city skyline), *Neon Night* (floodlit street court). Best scores are saved per world.
-- **Controls:** drag the ball down to power up and slide sideways to aim; the dotted arc previews the shot; release to shoot (touch or mouse). Keyboard: arrow keys to aim, Space to shoot, `P`/`Esc` to pause.
+- **Controls:** drag the ball down to power up and slide sideways to aim; the dotted guide traces the whole flight to rim height and a ring shows where the ball will cross the rim (green = clean swish, amber = rim touch, red = miss); release to shoot (touch or mouse). **Look around:** drag empty court to pan, pinch or scroll to zoom (double-click or the on-screen buttons to reset). Keyboard: arrow keys to aim, Space to shoot, `+`/`-` zoom, `0` reset view, `P`/`Esc` to pause.
 - **Scoring:** clean swish +2 (consecutive swishes multiply up to x5), rim-touching basket +1. A basket restores a ball (max 5) and moves you to a new spot with a new hoop (static, sliding, bobbing or behind a spinning bar); a miss costs one ball.
 
 ## Deployment
