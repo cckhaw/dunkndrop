@@ -9,6 +9,14 @@ A single-file HTML5 physics arcade shooter. Drag the ball back, release, and swi
 - **Look around:** drag the court to orbit (rotate and tilt), pinch or scroll to zoom, two fingers to pan; buttons for zoom, rotate 45° and reset (double-click also resets). Keyboard: arrows aim, Space shoots, `Q`/`E` rotate, `+`/`-` zoom, `0` reset, `P`/`Esc` pause.
 - **Scoring:** clean swish +2 (consecutive swishes multiply up to x5), rim-touching basket +1. A basket restores a ball (max 5) and moves you to a new spot with a new hoop (static, sliding, bobbing or behind a spinning bar); a miss costs one ball.
 
+## Audio
+
+Everything is synthesised with the Web Audio API (no audio files). Effects: bounces, backboard, rim, swish, combo chimes, whoosh, miss and game-over. Music: a basketball groove per world - laid-back funk-hop on *Sunny Block*, lo-fi chill on *Rooftop Sunset*, synthwave on *Neon Night* - every one with a dribbling ball in the percussion that "settles" at the end of each loop. Toggle **Sound** and **Music** from the start/pause menus; the speaker button in the game mutes everything.
+
+- Browsers only allow audio after a tap, so it starts on the first tap anywhere; it retries on later taps if the browser suspends it (e.g. after a phone call), and pauses while the tab is hidden.
+- iPhones silence Web Audio when the ringer switch is on silent unless the page asks for a "playback" audio session, so the game requests one.
+- The output chain is a soft clipper (browser-default compressor nodes were crushing loud effects by ~20 dB). `npm test` checks the music patterns are complete and never throw.
+
 ## Leaderboards
 
 Each world has its own global top 10. After a game, enter a name to submit your score; open **Leaderboards** from the start screen (or **Leaderboard** on the game-over screen) to browse the three worlds.
