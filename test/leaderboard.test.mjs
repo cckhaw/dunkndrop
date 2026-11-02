@@ -170,3 +170,38 @@ test('blob store: a rejected update (throw inside fn) writes nothing; persistent
   const orig = sdk.put.bind(sdk); sdk.put = async (...a) => { always(); return orig(...a); };
   await assert.rejects(store.update('block', addScore('B', 2)), e => e instanceof sdk.BlobPreconditionFailedError);
 });
+
+// ---------- Background music engine (extracted from index.html and run against a stub audio context) ----------
+function loadMusicEngine() {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const m = html.match(/const MusicEngine = \(\(\) => \{[\s\S]*?\n\}\)\(\);/);
+  assert.ok(m, 'MusicEngine block missing from index.html');
+  return new Function(m[0] + '; return MusicEngine;')();
+}
+function stubAudio() {
+  const log = { osc: 0, noise: 0, bad: [] };
+  const param = () => ({ value: 0, setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} });
+  const node = () => ({ connect() {}, start() {}, stop() {}, frequency: param(), gain: param(), Q: param(), detune: param(), type: '' });
+  return {
+    log,
+    ac: {
+      createOscillator() { log.osc++; return node(); }, createBufferSource() { log.noise++; return node(); },
+      createGain: node, createBiquadFilter: node
+    }
+  };
+}
+test('music: every world has a complete 4-bar groove that schedules sound on every bar and never throws', () => {
+  const M = loadMusicEngine();
+  assert.deepEqual(Object.keys(M.GROOVES).sort(), ['block', 'neon', 'roof']);
+  for (const [id, g] of Object.entries(M.GROOVES)) {
+    assert.ok(g.bpm >= 70 && g.bpm <= 130, id + ' bpm');
+    for (const k of ['kick', 'snare', 'hat', 'drib']) { assert.equal(g[k].length, 4, id + ' ' + k); g[k].forEach(p => assert.equal(p.length, 16, `${id} ${k} bar length`)); }
+    assert.equal(g.chords.length, 4); assert.equal(g.bassRoot.length, 4);
+    const { ac, log } = stubAudio(), stub = {};
+    for (let bar = 0; bar < 8; bar++) {                                    // two full loops, covering the hook, fills and variations
+      const before = log.osc + log.noise;
+      for (let s = 0; s < 16; s++) M.step(ac, stub, {}, id, bar * 16 + s, 0);
+      assert.ok(log.osc + log.noise - before > 20, `${id} bar ${bar} should contain plenty of sound`);
+    }
+  }
+});
